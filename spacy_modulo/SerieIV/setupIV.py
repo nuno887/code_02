@@ -158,7 +158,7 @@ def create_orglabel_symbol_sanitizer(nlp, name):
                 has_numdashnum = bool(_NUM_DASH_NUM.search(txt))
                 has_colon = ":" in txt
                 has_slash = "/" in txt
-                one_word = (sum(1 for t in ent if t.is_alpha)) == 1
+                one_word = len([w for w in re.split(r"[^\w]+", ent.text) if any(ch.isalnum() for ch in w)]) <= 1
 
                 if has_parens or has_numdashnum or has_colon or has_slash or one_word:
                     new_ents.append(Span(doc, ent.start, ent.end, label=PARAGRAPH))
@@ -208,7 +208,8 @@ def assinatura_detector(doc: Doc) -> Doc:
         if any(ch.isdigit() for ch in left_stripped):
             if not re.search(r"\.(?:º|ª)\b", left_stripped):
                 continue
-        
+        if (left_stripped.count(".") > 2) or (right_stripped.count(".") > 2):
+            continue
         if any(ch.isdigit() for ch in right_stripped):
             continue
 
@@ -472,6 +473,41 @@ def merge_plain_org_labels(doc: Doc) -> Doc:
     doc.ents = tuple(filter_spans(out))
     return doc
 # ================================ connecting adjacent ORG_LABELS (fim) ========================================
+# ================================= orglabel_prohibited_words_demoter (inicio) =================================
+
+def _norm(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return s.replace(".", "").casefold()
+
+@Language.factory("orglabel_prohibited_words_demoter", default_config={"words": []})
+def create_orglabel_prohibited_words_demoter(nlp, name, words):
+    PARAGRAPH = nlp.vocab.strings.add("PARAGRAPH")
+    prohibited = {_norm(w) for w in (words or [])}
+
+    # split into word-like parts; keep dotted abbreviations (e.g., S.A., S.G.P.S.)
+    splitter = re.compile(r"[^\w\.]+", flags=re.UNICODE)
+
+    def component(doc: Doc) -> Doc:
+        new_ents = []
+        for ent in doc.ents:
+            if ent.label_ != "ORG_LABEL":
+                new_ents.append(ent)
+                continue
+
+            parts = [p for p in splitter.split(ent.text) if p]
+            parts_norm = {_norm(p) for p in parts}
+
+            if prohibited & parts_norm:
+                new_ents.append(Span(doc, ent.start, ent.end, label=PARAGRAPH))
+            else:
+                new_ents.append(ent)
+
+        doc.ents = tuple(new_ents)
+        return doc
+
+    return component
+# ================================= orglabel_prohibited_words_demoter (fim) =================================
 
 def setup_entitiesIV(nlp, Serie: Optional[int]):
 
@@ -487,6 +523,26 @@ def setup_entitiesIV(nlp, Serie: Optional[int]):
     nlp.add_pipe("merge_paragraphs", after="paragraph_filler")
     nlp.add_pipe("orglabel_adjacent_paragraph_demoter", after="merge_paragraphs")
     nlp.add_pipe("merge_plain_org_labels", after="orglabel_adjacent_paragraph_demoter")
+    nlp.add_pipe(
+    "orglabel_prohibited_words_demoter",
+    after="merge_plain_org_labels",
+    config={"words": [
+        "ASSINATURA", 
+        "ANEXO", 
+        "MODELO", 
+        "ALTERACOES", 
+        "CONTRATO", 
+        "MUDANCA", 
+        "FORA", 
+        "QUOTAS", 
+        "DISSOLUCAO", 
+        "ENCERRAMENTO", 
+        "LIQUIDACAO",
+        "CESSACAO",
+        "CONSTITUICAO",
+        "DESIGNACAO"
+        ]}
+)
 
 
         

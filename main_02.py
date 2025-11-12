@@ -110,13 +110,14 @@ def split_body(doc_body, payload, serie_iii: bool):
 
 def main():
 
-    file = Path("input_pdfs") / "IVSerie-107-2025-08-29Supl.pdf"
+    file = Path("input_pdfs") / "IVSerie-013-2014-01-24.pdf"
 
 
     serie = is_serie(file.name)
     print(f"serie:", serie)
     nlp = get_nlp(serie)
     text= load_text_from_pdf(file)
+
 
     nlp.max_length = max(nlp.max_length, len(text) + 1)
 
