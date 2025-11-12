@@ -4,6 +4,7 @@ from spacy.language import Language
 from spacy.util import filter_spans
 from .DocText import *
 from .Paragraphs import *
+from typing import Optional
 
 
 
@@ -617,13 +618,13 @@ def create_single_word_orgs_to_junk(nlp, name):
 
     return component
 
-def setup_entities(nlp, SerieIII: bool):
+def setup_entities(nlp, Serie: Optional[int]):
 
     ruler = nlp.add_pipe("entity_ruler", first = True)
     ruler.add_patterns(RULER_PATTERNS)
     nlp.add_pipe("allcaps_entity")
 
-    if SerieIII:
+    if Serie == 3:
         nlp.add_pipe("docname_entity_III")
     else:
         nlp.add_pipe("docname_entity")
