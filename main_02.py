@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+import pathlib
 import argparse
 import html as html_lib
 
@@ -12,7 +12,7 @@ from relation_extractor import RelationExtractor, RelationExtractorSerieIII, exp
 
 from pdf_markup import extract_pdf_to_markdown
 
-from spacy_modulo import get_nlp, setup_entities, OPTIONS
+from spacy_modulo import get_nlp, setup_entities, setup_entitiesIV
 
 from body_extraction import divide_body_by_org_and_docs, divide_body_by_org_and_docs_serieIII
 
@@ -24,6 +24,20 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+OPTIONS = {"colors": {
+    "Sumario": "#ffd166",
+    "ORG_LABEL": "#6e77b8",
+    "ORG_WITH_STAR_LABEL": "#6fffff",
+    "DOC_NAME_LABEL": "#b23bbd",
+    "DOC_TEXT": "#47965e",
+    "PARAGRAPH": "#14b840",
+    "JUNK_LABEL": "#e11111",
+    "SERIE_III": "#D1B1B1",
+    "ASSINATURA": "#d894df"
+}}
+
+
 
 
 DEFAULT_INPUT_DIR = Path("input_pdfs")
@@ -94,19 +108,29 @@ def split_body(doc_body, payload, serie_iii: bool):
     return results,summary
 
 
-
 def main():
 
-    file = Path("input_pdfs") / "doc"
+    file = Path("input_pdfs") / "IVSerie-107-2025-08-29Supl.pdf"
 
 
     serie = is_serie(file.name)
+    print(f"serie:", serie)
     nlp = get_nlp(serie)
     text= load_text_from_pdf(file)
+
     nlp.max_length = max(nlp.max_length, len(text) + 1)
 
     doc, doc_sumario, doc_body, sumario_text, body_text, _meta = build_docs(nlp, text)
+
+    html = displacy.render(doc, style="ent", options=OPTIONS, page= True)
+    out_path = pathlib.Path("entities.html")
+    out_path.write_text(html, encoding="utf-8")
+
+
+
     rels, payload = extract_relations_and_payload (doc_sumario, serie)
     results, summary = split_body(doc_body, payload, serie)
 
     
+
+main()
