@@ -14,7 +14,7 @@ from pdf_markup import extract_pdf_to_markdown
 
 from spacy_modulo import get_nlp, setup_entities, setup_entitiesIV
 
-from body_extraction import divide_body_by_org_and_docs, divide_body_by_org_and_docs_serieIII
+from body_extraction import divide_body_by_org_and_docs, divide_body_by_org_and_docs_serieIII, split_doc_by_assinatura
 
 from testing_results import summarize_results
 
@@ -87,17 +87,20 @@ def extract_relations_and_payload(doc_sumario, serie_iii: bool):
     return rels, payload
 
 
-def split_body(doc_body, payload, serie_iii: bool):
-    if serie_iii:
+def split_body(doc_body, payload, serie: int):
+    if serie == 3:
         # IMPORTANT: pass the same pipeline used to build doc_body
         results, summary = divide_body_by_org_and_docs_serieIII(
             doc_body,
             payload,
 
         )
+    if serie == 4:
+        print(f"Here")
+        results = split_doc_by_assinatura(doc_body)
+        summary = None
     else:
         # Keep your Serie I/II path as-is if you still use it elsewhere
-        
 
         results,summary = divide_body_by_org_and_docs(
             doc_body,
@@ -110,7 +113,7 @@ def split_body(doc_body, payload, serie_iii: bool):
 
 def main():
 
-    file = Path("input_pdfs") / "IVSerie-013-2014-01-24.pdf"
+    file = Path("input_pdfs") / "IIISerie-09-2023-05-04.pdf"
 
 
     serie = is_serie(file.name)
@@ -118,20 +121,21 @@ def main():
     nlp = get_nlp(serie)
     text= load_text_from_pdf(file)
 
-
     nlp.max_length = max(nlp.max_length, len(text) + 1)
 
+    #doc = nlp(text)
     doc, doc_sumario, doc_body, sumario_text, body_text, _meta = build_docs(nlp, text)
 
-    html = displacy.render(doc, style="ent", options=OPTIONS, page= True)
+    html = displacy.render(doc_sumario, style="ent", options=OPTIONS, page= True)
     out_path = pathlib.Path("entities.html")
     out_path.write_text(html, encoding="utf-8")
 
 
-
     rels, payload = extract_relations_and_payload (doc_sumario, serie)
+
     results, summary = split_body(doc_body, payload, serie)
 
-    
+    print(f"Results:", results)
+
 
 main()

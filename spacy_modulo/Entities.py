@@ -5,7 +5,7 @@ from spacy.util import filter_spans
 from .DocText import *
 from .Paragraphs import *
 from typing import Optional
-
+from spacy.tokens import Doc, Span
 
 
 OPTIONS = {"colors": {
@@ -22,15 +22,17 @@ OPTIONS = {"colors": {
 
 RULER_PATTERNS = [
 
-{"label": "Sumario", "pattern": "**Sumário**"},
-{"label": "Sumario", "pattern": "**Sumario**"},
+{"label": "Sumario", "pattern": "###**Sumário**"},
+{"label": "Sumario", "pattern": "###**Sumario**"},
 {"label": "Sumario",
  "pattern": [
    {"TEXT": {"IN": ["Sumário", "Sumario"]}},
    {"ORTH": ":", "OP": "!"}
  ]},
+ {"label": "JUNK_LABEL", "pattern": "## **Suplemento**"},
 
 {"label": "SERIE_III", "pattern": "**Regulamentação do Trabalho**"},
+{"label": "SERIE_III", "pattern": "** Direção Regional do Trabalho e da Ação Inspetiva**"},
 
 {"label": "SERIE_III", "pattern": "Direção Regional do Trabalho"},
 {"label": "SERIE_III", "pattern": "Direcção Regional do Trabalho"},
@@ -618,10 +620,57 @@ def create_single_word_orgs_to_junk(nlp, name):
 
     return component
 
+# ====================== Sumario (inicio)=================================================================
+# 1) Markdown heading form: one or more '#' tokens, optional **/***, then Sumário/Sumario (optionally repeated once), nothing else
+_SUMARIO_HEADING_RE = re.compile(
+    r"""
+    ^\s*
+    (?:[#]{1,4}\s+)+              # one or more heading tokens
+    (?:\*\*\s*)?                  # optional opening **
+    \**\s*                        # tolerate stray *
+    (sumario|sumário)
+    \s*\**\s*                     # tolerate stray *
+    (?:\*\*\s*)?                  # optional closing **
+    (?:\s+(sumario|sumário))?     # optional second word
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+
+@Language.component("sumario_detector")
+def sumario_detector(doc: Doc) -> Doc:
+    text = doc.text
+    spans = []
+    pos = 0
+    for ln in text.splitlines(keepends=True):
+        line_start = pos
+        pos += len(ln)
+        content = ln.rstrip("\n")
+
+        if not content.strip():
+            continue
+
+        if _SUMARIO_HEADING_RE.match(content):
+            s = line_start
+            e = line_start + len(content)      # span = the visible line only
+            sp = doc.char_span(s, e, label="Sumario", alignment_mode="contract")
+            if sp is not None:
+                spans.append(sp)
+
+    if spans:
+        from spacy.util import filter_spans
+        doc.ents = filter_spans(list(doc.ents) + spans)
+    return doc
+
+# ====================== Sumario (fim) =================================================================
+
 def setup_entities(nlp, Serie: Optional[int]):
 
     ruler = nlp.add_pipe("entity_ruler", first = True)
     ruler.add_patterns(RULER_PATTERNS)
+    nlp.add_pipe("sumario_detector")
     nlp.add_pipe("allcaps_entity")
 
     if Serie == 3:
@@ -639,4 +688,4 @@ def setup_entities(nlp, Serie: Optional[int]):
 
     nlp.add_pipe("single_word_orgs_to_junk")
 
-        
+ 

@@ -205,6 +205,11 @@ def assinatura_detector(doc: Doc) -> Doc:
         left_stripped = left.strip()
         right_stripped = right.strip()
 
+        if "-" in right_stripped:
+            continue
+        if '"' in left_stripped:
+            continue
+
         if any(ch.isdigit() for ch in left_stripped):
             if not re.search(r"\.(?:º|ª)\b", left_stripped):
                 continue
@@ -509,7 +514,7 @@ def create_orglabel_prohibited_words_demoter(nlp, name, words):
     return component
 # ================================= orglabel_prohibited_words_demoter (fim) =================================
 
-def setup_entitiesIV(nlp, Serie: Optional[int]):
+def setup_entitiesIV(nlp):
 
    # ruler = nlp.add_pipe("entity_ruler", first = True)
    # ruler.add_patterns(RULER_PATTERNS)
